@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESCOVADO — Controle de Produção</title>
+    <style>
+        :root {
+            --bg-dark: #121212; --bg-card: #1e1e1e; --bg-hover: #2d2d2d;
+            --primary: #8d6e63; --success: #4CAF50; --warning: #FF9800;
+            --info: #0288d1; --text: #f0f0f0; --muted: #999; --border: #333;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { background: var(--bg-dark); color: var(--text); min-height: 100vh; padding: 1.5rem; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { text-align: center; color: var(--primary); margin-bottom: 1.5rem; font-size: 1.8rem; }
+        .card { background: var(--bg-card); border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border); }
+        .card h2 { font-size: 1.2rem; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+        .pulmao h2 { color: var(--info); }
+        .producao h2 { color: var(--warning); }
+        .concluidas h2 { color: var(--success); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+        .campo { display: flex; flex-direction: column; gap: 0.3rem; }
+        label { font-size: 0.85rem; color: var(--muted); }
+        input { 
+            padding: 0.75rem; background: #252525; border: 1px solid #444; 
+            border-radius: 6px; color: var(--text); font-size: 1rem; outline: none;
+        }
+        input:focus { border-color: #0288d1; }
+        input:read-only { background: #1f1f1f; color: #888; cursor: not-allowed; }
+        .botoes { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-top: 0.5rem; }
+        button { padding: 0.75rem 1.2rem; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        button:disabled { opacity: 0.35; cursor: not-allowed; }
+        button:hover:not(:disabled) { transform: translateY(-2px); }
+        .btn-pegar { background: #0288d1; color: white; }
+        .btn-lancar { background: #4CAF50; color: white; }
+        .btn-finalizar { background: #28a745; color: white; }
+        table { width: 100%; border-collapse: collapse; margin-top: 0.8rem; }
+        th, td { padding: 0.8rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+        th { background: var(--bg-hover); color: var(--info); font-weight: 600; }
+        tr:hover { background: var(--bg-hover); }
+        .vazio { text-align: center; color: var(--muted); padding: 2rem; }
+        .destino-badge {
+            display: inline-block; padding: 0.3rem 0.8rem; border-radius: 6px;
+            background: var(--success); color: white; font-weight: 600; font-size: 0.85rem;
+        }
+        .status-badge {
+            display: inline-block; padding: 0.4rem 1rem; border-radius: 6px;
+            background: #2c5aa0; color: white; font-weight: 600; font-size: 0.85rem;
+        }
+        .tempo-producao { color: #FFD700; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 ESCOVADO — Controle de Produção</h1>
+        <div class="card pulmao">
+            <h2>🫁 Materiais no Pulmão — Aguardando Escovado</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nº OP</th><th>Destino</th><th>Acabamento</th><th>Peso (kg)</th><th>Peças</th><th>Data/Hora Separação</th><th>Status</th><th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="lista-pulmao"></tbody>
+            </table>
+        </div>
+        <div class="card producao">
+            <h2>⚙️ Em Produção — Escovado</h2>
+            <div class="grid">
+                <div class="campo"><label>Número da OP</label><input type="text" id="campo-op" placeholder="Digite a OP aqui"></div>
+                <div class="campo"><label>Destino</label><input type="text" id="campo-destino" readonly></div>
+                <div class="campo"><label>Acabamento</label><input type="text" id="campo-acab" readonly></div>
+                <div class="campo"><label>Peso (kg)</label><input type="text" id="campo-peso" readonly></div>
+                <div class="campo"><label>Quantidade de Peças</label><input type="text" id="campo-qtd" readonly></div>
+            </div>
+            <div class="botoes">
+                <button class="btn-lancar" id="btn-lancar" onclick="lancarProducao()" disabled>▶ Lançar Produção</button>
+                <button class="btn-finalizar" id="btn-finalizar" onclick="finalizarProducao()" disabled>✅ Finalizar Escovado</button>
+            </div>
+            <table>
+                <thead>
+                    <tr><th>Nº OP</th><th>Destino</th><th>Acabamento</th><th>Peso (kg)</th><th>Peças</th><th>Início</th><th>Status</th></tr>
+                </thead>
+                <tbody id="lista-producao"></tbody>
+            </table>
+        </div>
+        <div class="card concluidas">
+            <h2>✅ Concluídas — Escovado</h2>
+            <table>
+                <thead>
+                    <tr><th>Nº OP</th><th>Destino</th><th>Acabamento</th><th>Peso (kg)</th><th>Peças</th><th>Início</th><th>Término</th><th>Tempo de Produção</th></tr>
+                </thead>
+                <tbody id="lista-concluidas"></tbody>
+            </table>
+        </div>
+    </div>
+<script>
+const STORAGE_KEY = 'dados_producao';
+const ET = {
+    PULMAO: 'separacao',
+    EM_PROD: 'escovado_em_producao',
+    CONCLUIDA: 'escovado_concluida'
+};
+const NOMES_DESTINO = {
+    'pintura': '🎨 Pintura', 'sublimacao': '🖼️ Sublimação',
+    'polimento-manual': '✨ Polimento Manual', 'polimento-automatico': '✨ Polimento Automático',
+    'jateado': '💨 Jateado', 'escovado': '🧹 Escovado',
+    'tinta-sobre-tinta': '🎨 Tinta sobre Tinta', 'anodizacao': '⚗️ Anodização'
+};
+const CANAL = new BroadcastChannel('producao_canal');
+let lista = []; let opSelecionada = null;
+function ehParaEscovado(op) { return op.destino === 'escovado' || op.destino === 'Escovado'; }
+function calcularTempoProducao(inicioStr, fimStr) {
+    if (!inicioStr || !fimStr) return '-';
+    const inicio = new Date(inicioStr.replace(/\//g, '-').replace(' ', 'T'));
+    const fim = new Date(fimStr.replace(/\//g, '-').replace(' ', 'T'));
+    if (isNaN(inicio.getTime()) || isNaN(fim.getTime())) return '-';
+    const diffMs = fim - inicio;
+    const horas = Math.floor(diffMs / 3600000);
+    const minutos = Math.floor((diffMs % 3600000) / 60000);
+    const segundos = Math.floor((diffMs % 60000) / 1000);
+    if (horas > 0) return `${horas}h ${minutos}m ${segundos}s`;
+    else if (minutos > 0) return `${minutos}m ${segundos}s`;
+    else return `${segundos}s`;
+}
+function carregarDados() { let bruto = localStorage.getItem(STORAGE_KEY); lista = bruto ? JSON.parse(bruto) : []; renderizarTudo(); }
+function salvarDados() { localStorage.setItem(STORAGE_KEY, JSON.stringify(lista)); CANAL.postMessage({ tipo: 'atualizar', origem: 'escovado' }); carregarDados(); }
+function renderizarTudo() {
+    const pulmao = lista.filter(op => op.etapa === ET.PULMAO && ehParaEscovado(op));
+    document.getElementById('lista-pulmao').innerHTML = pulmao.length 
+        ? pulmao.map(op => `<tr><td><strong>${op.numero}</strong></td><td><span class="destino-badge">${NOMES_DESTINO[op.destino] || op.destino}</span></td><td>${op.acabamento || '-'}</td><td>${op.peso || '-'}</td><td>${op.quantidadePecas || '-'}</td><td>${op.horaSeparacao || '-'}</td><td><span class="status-badge">Material no Pulmão</span></td><td><button class="btn-pegar" onclick="pegarOP('${op.numero}')">📥 Pegar</button></td></tr>`).reverse().join('')
+        : '<tr><td colspan="8" class="vazio">Nenhuma OP destinada ao Escovado disponível no Pulmão</td></tr>';
+    const emProd = lista.filter(op => op.etapa === ET.EM_PROD && ehParaEscovado(op));
+    document.getElementById('lista-producao').innerHTML = emProd.length
+        ? emProd.map(op => `<tr onclick="selecionarPorLinha('${op.numero}')" style="cursor:pointer"><td><strong>${op.numero}</strong></td><td><span class="destino-badge">${NOMES_DESTINO[op.destino] || op.destino}</span></td><td>${op.acabamento || '-'}</td><td>${op.peso || '-'}</td><td>${op.quantidadePecas || '-'}</td><td>${op.horaInicio || '-'}</td><td style="color:#FF9800; font-weight:600">Em Produção</td></tr>`).reverse().join('')
+        : '<tr><td colspan="7" class="vazio">Nenhuma OP em produção</td></tr>';
+    const concluidas = lista.filter(op => op.etapa === ET.CONCLUIDA && ehParaEscovado(op));
+    document.getElementById('lista-concluidas').innerHTML = concluidas.length
+        ? concluidas.map(op => { const t = calcularTempoProducao(op.horaInicio, op.horaFim); return `<tr><td><strong>${op.numero}</strong></td><td><span class="destino-badge">${NOMES_DESTINO[op.destino] || op.destino}</span></td><td>${op.acabamento || '-'}</td><td>${op.peso || '-'}</td><td>${op.quantidadePecas || '-'}</td><td>${op.horaInicio || '-'}</td><td>${op.horaFim || '-'}</td><td class="tempo-producao">${t}</td></tr>`; }).reverse().join('')
+        : '<tr><td colspan="8" class="vazio">Nenhuma concluída</td></tr>';
+    atualizarBotoes();
+}
+function pegarOP(numero) {
+    const op = lista.find(o => o.numero === numero);
+    if (!op) return alert('OP não encontrada!');
+    if (op.etapa !== ET.PULMAO) return alert(`OP não está no Pulmão! Etapa: ${op.etapa}`);
+    if (!ehParaEscovado(op)) return alert(`Não é destinada ao Escovado! Destino: ${op.destino}`);
+    op.etapa = ET.EM_PROD; op.horaInicio = new Date().toLocaleString('pt-BR'); salvarDados(); alert(`✅ OP ${numero} enviada para Produção!`);
+}
+const campoOP = document.getElementById('campo-op');
+campoOP.addEventListener('input', function() {
+    const v = this.value.trim(); if (!v) { limparFormulario(); return; }
+    const op = lista.find(o => o.numero === v); if (op) preencherFormulario(op); else limparFormulario();
+});
+function selecionarPorLinha(n) { const op = lista.find(o => o.numero === n); if (op) preencherFormulario(op); }
+function preencherFormulario(op) {
+    opSelecionada = op;
+    document.getElementById('campo-op').value = op.numero;
+    document.getElementById('campo-destino').value = NOMES_DESTINO[op.destino] || op.destino || '';
+    document.getElementById('campo-acab').value = op.acabamento || '';
+    document.getElementById('campo-peso').value = op.peso || '';
+    document.getElementById('campo-qtd').value = op.quantidadePecas || '';
+    atualizarBotoes();
+}
